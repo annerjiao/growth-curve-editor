@@ -300,6 +300,10 @@ export function createEditor(canvas, opts = {}) {
       activeKey = active || Object.keys(scenarios)[0];
       allowKnotMonthEdit = Boolean(options.allowKnotMonthEdit);
       for (const key of Object.keys(scenarios)) {
+        const c = scenarios[key];
+        if (!c.knotLabels || c.knotLabels.length !== c.knotMonths.length) {
+          c.knotLabels = c.knotMonths.map((_, i) => c.knotLabels?.[i] ?? "");
+        }
         recompute(key, false);
       }
       render();
@@ -342,6 +346,38 @@ export function createEditor(canvas, opts = {}) {
       c.knotMonths = enforceMonotonicKnotMonths(c.knotMonths, totalMonths);
       enforceMonotonicKnots(c.knotCumulative);
       recompute(activeKey, true);
+    },
+    addKnot() {
+      const c = getActive();
+      if (!c || c.knotMonths.length >= 6) return false;
+
+      let splitAt = 0;
+      let bestGap = 0;
+      for (let i = 0; i < c.knotMonths.length - 1; i++) {
+        const gap = c.knotMonths[i + 1] - c.knotMonths[i];
+        if (gap > bestGap) {
+          bestGap = gap;
+          splitAt = i;
+        }
+      }
+      if (bestGap < 2) return false;
+
+      const m0 = c.knotMonths[splitAt];
+      const m1 = c.knotMonths[splitAt + 1];
+      const newMonth = Math.max(m0 + 1, Math.min(m1 - 1, Math.round((m0 + m1) / 2)));
+      const v0 = c.knotCumulative[splitAt];
+      const v1 = c.knotCumulative[splitAt + 1];
+      const newValue = Math.round((v0 + v1) / 2);
+
+      c.knotMonths.splice(splitAt + 1, 0, newMonth);
+      c.knotCumulative.splice(splitAt + 1, 0, newValue);
+      if (!c.knotLabels) c.knotLabels = c.knotMonths.map(() => "");
+      c.knotLabels.splice(splitAt + 1, 0, "");
+
+      c.knotMonths = enforceMonotonicKnotMonths(c.knotMonths, totalMonths);
+      enforceMonotonicKnots(c.knotCumulative);
+      recompute(activeKey, true);
+      return true;
     },
     render,
     fmt,

@@ -123,8 +123,8 @@
 
     <!-- Step 4: Edit -->
     <section id="step-edit" class="panel step-panel">
-      <h2>Drag knots to refine</h2>
-      <p class="hint" id="editHint">Drag yellow knots on the cumulative curve. Monthly flow (pink bars) is derived automatically.</p>
+      <h2>Drag milestones to refine</h2>
+      <p class="hint" id="editHint">Drag yellow milestones on the cumulative curve. Monthly flow (pink bars) is derived automatically.</p>
 
       <div id="caseGrid" class="case-grid"></div>
 
@@ -136,17 +136,18 @@
       <div class="chart-wrap">
         <canvas id="chart" width="960" height="420" aria-label="Growth curve chart"></canvas>
         <div class="chart-legend">
-          <span class="dot cumulative"></span> Cumulative (drag knots)
+          <span class="dot cumulative"></span> Cumulative (drag milestones)
           <span class="dot signups"></span> Monthly flow (derived)
         </div>
       </div>
 
       <div class="knot-table-wrap">
-        <h3>Knot values</h3>
+        <h3>Milestones</h3>
         <table id="knotTable">
-          <thead><tr><th>Month</th><th>Cumulative</th></tr></thead>
+          <thead><tr><th>Month</th><th>Label</th><th>Cumulative</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
+        <button type="button" class="btn-secondary add-milestone-btn" id="addMilestoneBtn">+ Add milestone</button>
       </div>
 
       <div id="statsGrid" class="stats grid"></div>

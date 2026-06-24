@@ -845,9 +845,32 @@ function applyCurveToActive() {
   const active = getActiveScenario();
   active.knotMonths = result.knotMonths;
   active.knotCumulative = result.knotCumulative;
-  active.knotLabels = result.knotLabels ?? [];
+  active.knotLabels = [...(result.knotLabels ?? [])];
+  while (active.knotLabels.length < active.knotMonths.length) {
+    active.knotLabels.push("");
+  }
   const derived = curveFromKnots(result.knotMonths, result.knotCumulative, totalMonths);
   active.flow = derived.signups;
+}
+
+function syncCurveParamsFromScenario(s) {
+  if (!s?.knotMonths?.length) return;
+  curveParams.milestones = s.knotMonths.map((month, idx) => ({
+    month,
+    value: s.knotCumulative[idx] ?? 0,
+    label: s.knotLabels?.[idx] ?? "",
+  }));
+}
+
+function syncActiveScenarioFromEditor() {
+  const s = getActiveScenario();
+  const updated = editor.getScenarios()[activeScenarioId];
+  if (!s || !updated) return;
+  s.knotMonths = [...updated.knotMonths];
+  s.knotCumulative = [...updated.knotCumulative];
+  s.knotLabels = updated.knotLabels ? [...updated.knotLabels] : [];
+  s.flow = [...updated.flow];
+  syncCurveParamsFromScenario(s);
 }
 
 // --- Edit ---
@@ -864,7 +887,7 @@ function initEditStep() {
     };
   });
   editor.setScenarios(editorScenarios, totalMonths, activeScenarioId, {
-    allowKnotMonthEdit: selectedCurveType === "milestone",
+    allowKnotMonthEdit: true,
   });
   renderCaseGrid();
   renderKnotTable();
@@ -872,14 +895,17 @@ function initEditStep() {
   document.getElementById("activeCaseLabel").textContent =
     getActiveScenario()?.label ?? "—";
   document.getElementById("editHint").textContent =
-    selectedCurveType === "milestone"
-      ? "Milestone mode: drag knots left/right to change timing, up/down for value. Labels show above each knot."
-      : "Drag yellow knots on the cumulative curve. Monthly flow (pink bars) is derived automatically.";
+    "Drag yellow milestones on the cumulative curve. Drag left/right for timing, up/down for value. Monthly flow (pink bars) is derived automatically.";
 }
 
 function renderCaseGrid() {
   const grid = document.getElementById("caseGrid");
   grid.innerHTML = "";
+  if (scenarios.length <= 1) {
+    grid.style.display = "none";
+    return;
+  }
+  grid.style.display = "";
   const data = editor.getScenarios();
 
   scenarios.forEach((s, i) => {
@@ -888,16 +914,9 @@ function renderCaseGrid() {
     card.type = "button";
     card.className = `case-card${s.id === activeScenarioId ? " active" : ""}`;
     card.innerHTML = `
-      <div class="case-card-head">
-        <span class="case-dot" style="background:${CASE_COLORS[i % CASE_COLORS.length]}"></span>
-        <span class="case-name">${escapeHtml(s.label)}</span>
-        <span class="case-range">${escapeHtml(s.rangeRef || "demo")}</span>
-      </div>
-      <canvas class="mini-chart" data-id="${s.id}" width="220" height="64"></canvas>
-      <div class="case-stats">
-        <span>Mid <b>${fmt(c?.stats?.p50)}</b></span>
-        <span>Final <b>${fmt(c?.stats?.final)}</b></span>
-      </div>`;
+      <span class="case-dot" style="background:${CASE_COLORS[i % CASE_COLORS.length]}"></span>
+      <span class="case-name">${escapeHtml(s.label)}</span>
+      <span class="case-meta">Final ${fmt(c?.stats?.final)}</span>`;
     card.addEventListener("click", () => {
       activeScenarioId = s.id;
       editor.selectScenario(s.id);
@@ -908,50 +927,30 @@ function renderCaseGrid() {
     });
     grid.appendChild(card);
   });
-
-  document.querySelectorAll(".mini-chart").forEach((mini) => {
-    const c = data[mini.dataset.id];
-    const idx = scenarios.findIndex((s) => s.id === mini.dataset.id);
-    if (c?.derived) {
-      drawMiniChart(
-        mini,
-        c.derived.cumulative,
-        CASE_COLORS[idx % CASE_COLORS.length],
-        mini.dataset.id === activeScenarioId
-      );
-    }
-  });
 }
 
 function renderKnotTable() {
   const table = document.getElementById("knotTable");
-  const thead = table.querySelector("thead tr");
   const tbody = table.querySelector("tbody");
+  const addBtn = document.getElementById("addMilestoneBtn");
   const s = getActiveScenario();
   const data = editor.getScenarios()[activeScenarioId];
-  const isMilestone = selectedCurveType === "milestone";
   if (!s || !data) return;
 
-  thead.innerHTML = isMilestone
-    ? "<th>Month</th><th>Label</th><th>Cumulative</th><th></th>"
-    : "<th>Month</th><th>Cumulative</th>";
-
   tbody.innerHTML = "";
-  const canDeleteKnot = isMilestone && s.knotMonths.length > 2;
+  const canDelete = s.knotMonths.length > 2;
   s.knotMonths.forEach((m, i) => {
     const tr = document.createElement("tr");
     const labelVal = escapeAttr(data.knotLabels?.[i] ?? "");
-    if (isMilestone) {
-      tr.innerHTML = `
-        <td><input type="number" min="1" max="${totalMonths}" step="1" data-field="month" data-i="${i}" value="${m}" /></td>
-        <td><input type="text" data-field="label" data-i="${i}" value="${labelVal}" placeholder="Milestone label" /></td>
-        <td><input type="number" min="0" step="100" data-field="value" data-i="${i}" value="${data.knotCumulative[i]}" /></td>
-        <td class="knot-actions">${canDeleteKnot ? `<button type="button" class="btn-link knot-delete-btn" data-i="${i}">Remove</button>` : ""}</td>`;
-    } else {
-      tr.innerHTML = `<td>M${m}</td><td><input type="number" min="0" step="100" data-field="value" data-i="${i}" value="${data.knotCumulative[i]}" /></td>`;
-    }
+    tr.innerHTML = `
+      <td><input type="number" min="1" max="${totalMonths}" step="1" data-field="month" data-i="${i}" value="${m}" /></td>
+      <td><input type="text" data-field="label" data-i="${i}" value="${labelVal}" placeholder="Milestone label" /></td>
+      <td><input type="number" min="0" step="100" data-field="value" data-i="${i}" value="${data.knotCumulative[i]}" /></td>
+      <td class="knot-actions">${canDelete ? `<button type="button" class="btn-link knot-delete-btn" data-i="${i}">Remove</button>` : ""}</td>`;
     tbody.appendChild(tr);
   });
+
+  if (addBtn) addBtn.disabled = s.knotMonths.length >= 6;
 
   tbody.querySelectorAll("input").forEach((inp) => {
     inp.addEventListener("change", () => {
@@ -963,29 +962,15 @@ function renderKnotTable() {
       } else {
         editor.updateKnot(i, inp.value);
       }
-      const updated = editor.getScenarios()[activeScenarioId];
-      s.knotMonths = [...updated.knotMonths];
-      s.knotCumulative = [...updated.knotCumulative];
-      s.knotLabels = updated.knotLabels ? [...updated.knotLabels] : [];
-      s.flow = [...updated.flow];
+      syncActiveScenarioFromEditor();
       if (inp.dataset.field === "month") renderKnotTable();
     });
   });
 
   tbody.querySelectorAll(".knot-delete-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const i = Number(btn.dataset.i);
-      editor.deleteKnot(i);
-      const updated = editor.getScenarios()[activeScenarioId];
-      s.knotMonths = [...updated.knotMonths];
-      s.knotCumulative = [...updated.knotCumulative];
-      s.knotLabels = updated.knotLabels ? [...updated.knotLabels] : [];
-      s.flow = [...updated.flow];
-      curveParams.milestones = s.knotMonths.map((month, idx) => ({
-        month,
-        value: s.knotCumulative[idx] ?? 0,
-        label: s.knotLabels?.[idx] ?? "",
-      }));
+      editor.deleteKnot(Number(btn.dataset.i));
+      syncActiveScenarioFromEditor();
       renderKnotTable();
       renderCaseGrid();
       renderStats();
@@ -1011,15 +996,19 @@ document.getElementById("reopenCurveBtn").addEventListener("click", () => {
   const s = getActiveScenario();
   initCurveStep();
   if (s?.knotMonths?.length) {
-    curveParams.milestones = s.knotMonths.map((month, i) => ({
-      month,
-      value: s.knotCumulative[i] ?? 0,
-      label: s.knotLabels?.[i] ?? "",
-    }));
+    syncCurveParamsFromScenario(s);
     renderCurveForm();
     updatePreviewChart();
   }
   setStep("curve");
+});
+
+document.getElementById("addMilestoneBtn").addEventListener("click", () => {
+  if (!editor.addKnot()) return;
+  syncActiveScenarioFromEditor();
+  renderKnotTable();
+  renderCaseGrid();
+  renderStats();
 });
 
 document.getElementById("editContinueBtn").addEventListener("click", () => {
