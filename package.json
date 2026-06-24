@@ -1,0 +1,20 @@
+{
+  "name": "growth-curve-editor",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Visual growth curve editor for Excel financial models — browser-only, your file never leaves your device.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.10",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

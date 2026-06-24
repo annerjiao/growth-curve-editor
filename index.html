@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Visual growth curve editor for Excel financial models. Your file never leaves your browser." />
+  <title>Growth Curve Editor</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/assets/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="site-header">
+      <div class="site-brand">
+        <img src="/assets/logo.png" alt="" class="site-logo" width="52" height="52" />
+        <div>
+          <h1>Growth Curve Editor</h1>
+          <p class="subtitle">Map your Excel driver row → pick a curve → drag to tweak → download.</p>
+        </div>
+      </div>
+      <a class="coffee-link" href="https://buymeacoffee.com/tzqdgkjmx" target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a>
+    </header>
+
+    <nav class="steps" aria-label="Progress">
+      <button type="button" class="step-tab active" data-step="upload">1. Upload</button>
+      <button type="button" class="step-tab" data-step="map" disabled>2. Map</button>
+      <button type="button" class="step-tab" data-step="curve" disabled>3. Curve</button>
+      <button type="button" class="step-tab" data-step="edit" disabled>4. Edit</button>
+      <button type="button" class="step-tab" data-step="export" disabled>5. Export</button>
+    </nav>
+
+    <p class="privacy-banner">🔒 Your workbook is processed entirely in your browser — nothing is uploaded to a server.</p>
+
+    <!-- Step 1: Upload -->
+    <section id="step-upload" class="panel step-panel active">
+      <h2>Upload your financial model</h2>
+      <p class="hint">Select the <strong>.xlsx</strong> file that contains your growth driver row (monthly signups, users, revenue, etc.).</p>
+      <label class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
+        <span class="drop-icon">📊</span>
+        <span>Drop Excel file here or click to browse</span>
+      </label>
+      <p id="uploadStatus" class="status-text"></p>
+      <p class="hint upload-template-hint">New here? Download the starter template, fill the orange cells in Excel, then upload it above.</p>
+      <a
+        class="btn-secondary template-download"
+        href="/assets/Startup_3Year_Projection_Template.xlsx"
+        download="Startup_3Year_Projection_Template.xlsx"
+      >Download 3-year starter template (.xlsx)</a>
+      <div class="or-divider">or</div>
+      <button type="button" class="btn-secondary" id="scratchBtn">Start without a file (demo mode)</button>
+    </section>
+
+    <!-- Step 2: Map -->
+    <section id="step-map" class="panel step-panel">
+      <h2>Map driver series</h2>
+      <p class="hint" id="mapHint">Choose the sheet that contains your monthly growth numbers (users, signups, etc.).</p>
+
+      <div id="mapSheetPhase" class="map-phase">
+        <label class="map-sheet-label">
+          Sheet
+          <select id="sheetSelect">
+            <option value="">Choose a sheet…</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="mapSuggestPhase" class="map-phase hidden">
+        <div id="mapSuggestions" class="map-suggestions">
+          <h3>Suggested rows</h3>
+          <p class="hint map-suggestions-intro">We found rows with changing numbers across month columns. Pick the driver you want to edit.</p>
+          <div id="suggestionList" class="suggestion-list"></div>
+        </div>
+        <button type="button" class="btn-link" id="mapManualBtn">None of these — enter range manually</button>
+      </div>
+
+      <div id="mapSelectedBar" class="map-selected-bar hidden" aria-live="polite"></div>
+
+      <div id="mapManualPhase" class="map-phase hidden">
+        <p class="hint">Enter the cell range for your monthly flow row (one row, one column per period).</p>
+        <div id="rangeWarning" class="range-warning hidden" role="alert"></div>
+        <div class="form-grid">
+          <label>
+            Metric label
+            <input type="text" id="metricLabel" value="Users" placeholder="Users, MRR, GMV…" />
+          </label>
+        </div>
+        <div id="scenarioList" class="scenario-list"></div>
+        <button type="button" class="btn-secondary" id="addScenarioBtn">+ Add scenario</button>
+        <div id="sheetPreview" class="sheet-preview"></div>
+        <button type="button" class="btn-link" id="mapBackToSuggestBtn">← Back to suggestions</button>
+      </div>
+
+      <div class="panel-actions">
+        <button type="button" class="btn-secondary" data-goto="upload">Back</button>
+        <button type="button" id="mapContinueBtn" disabled>Continue →</button>
+      </div>
+      <p id="mapError" class="error-text"></p>
+    </section>
+
+    <!-- Step 3: Curve setup -->
+    <section id="step-curve" class="panel step-panel">
+      <h2>Choose a growth curve</h2>
+      <p class="hint">We suggest a shape from your data. Adjust the numbers — preview updates live.</p>
+
+      <div id="curveTypeGrid" class="curve-type-grid"></div>
+      <div id="curveForm" class="curve-form"></div>
+
+      <div class="preview-row">
+        <canvas id="previewChart" width="480" height="160" aria-label="Curve preview"></canvas>
+      </div>
+
+      <div class="panel-actions">
+        <button type="button" class="btn-secondary" data-goto="map">Back</button>
+        <button type="button" id="curveApplyBtn">Generate &amp; edit →</button>
+      </div>
+      <p id="curveError" class="error-text"></p>
+    </section>
+
+    <!-- Step 4: Edit -->
+    <section id="step-edit" class="panel step-panel">
+      <h2>Drag knots to refine</h2>
+      <p class="hint" id="editHint">Drag yellow knots on the cumulative curve. Monthly flow (pink bars) is derived automatically.</p>
+
+      <div id="caseGrid" class="case-grid"></div>
+
+      <div class="toolbar">
+        <span class="editing-label">Editing: <strong id="activeCaseLabel">—</strong></span>
+        <button type="button" class="btn-secondary" id="reopenCurveBtn">Change curve type</button>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="chart" width="960" height="420" aria-label="Growth curve chart"></canvas>
+        <div class="chart-legend">
+          <span class="dot cumulative"></span> Cumulative (drag knots)
+          <span class="dot signups"></span> Monthly flow (derived)
+        </div>
+      </div>
+
+      <div class="knot-table-wrap">
+        <h3>Knot values</h3>
+        <table id="knotTable">
+          <thead><tr><th>Month</th><th>Cumulative</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="statsGrid" class="stats grid"></div>
+
+      <div class="panel-actions">
+        <button type="button" class="btn-secondary" data-goto="curve">Back</button>
+        <button type="button" id="editContinueBtn">Continue to export →</button>
+      </div>
+    </section>
+
+    <!-- Step 5: Export -->
+    <section id="step-export" class="panel step-panel">
+      <h2>Download updated workbook</h2>
+      <p class="hint">Your mapped ranges will be updated with the edited monthly flow values.</p>
+      <ul id="exportSummary" class="export-summary"></ul>
+      <button type="button" id="downloadBtn">Download .xlsx</button>
+      <p class="post-download">Enjoying this tool? <a href="https://buymeacoffee.com/tzqdgkjmx" target="_blank" rel="noopener noreferrer">Buy me a coffee ☕</a></p>
+      <div class="panel-actions">
+        <button type="button" class="btn-secondary" data-goto="edit">Back to editor</button>
+        <button type="button" class="btn-secondary" id="startOverBtn">Start over</button>
+      </div>
+    </section>
+
+    <aside class="promo-banner" aria-label="Ableten">
+      <img src="/assets/ableten-logo.png" alt="" class="promo-logo" width="44" height="44" />
+      <div class="promo-banner-copy">
+        <span class="promo-eyebrow">Ableten.xyz</span>
+        <p class="promo-text">Your social, source library for group planning</p>
+      </div>
+      <a class="promo-cta" href="https://ableten.xyz" target="_blank" rel="noopener noreferrer">Sign up now</a>
+    </aside>
+
+    <footer class="site-footer">
+      <a href="https://github.com/annerjiao/growth-curve-editor" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+      · Browser-only · MIT
+    </footer>
+  </div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
