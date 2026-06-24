@@ -179,6 +179,36 @@ export const CURVE_TYPES = [
 
 /**
  * @param {number[]} cumulative
+ * @returns {{ milestones: { month: number, value: number, label: string }[] }}
+ */
+export function inferMilestoneParams(cumulative) {
+  const T = cumulative.length || 36;
+  const final = cumulative[T - 1] || 0;
+  const max = cumulative.length ? Math.max(...cumulative, 0) : 0;
+
+  if (T < 2 || max === 0) {
+    return {
+      milestones: [
+        { month: Math.max(1, Math.round(T * 0.33)), value: 500, label: "" },
+        { month: Math.max(2, Math.round(T * 0.66)), value: 5000, label: "" },
+        { month: T, value: 15000, label: "" },
+      ],
+    };
+  }
+
+  const m1 = Math.max(1, Math.round(T * 0.33));
+  const m2 = Math.max(m1 + 1, Math.round(T * 0.66));
+  return {
+    milestones: [
+      { month: m1, value: cumulative[m1 - 1] || 0, label: "" },
+      { month: m2, value: cumulative[m2 - 1] || 0, label: "" },
+      { month: T, value: final, label: "" },
+    ],
+  };
+}
+
+/**
+ * @param {number[]} cumulative
  * @returns {{ type: CurveType, params: Record<string, number|object> }}
  */
 export function inferCurveType(cumulative) {
@@ -254,13 +284,7 @@ export function inferCurveType(cumulative) {
   const m2 = Math.max(m1 + 1, Math.round(T * 0.66));
   return {
     type: "milestone",
-    params: {
-      milestones: [
-        { month: m1, value: cumulative[m1 - 1] || 0, label: "" },
-        { month: m2, value: cumulative[m2 - 1] || 0, label: "" },
-        { month: T, value: final, label: "" },
-      ],
-    },
+    params: inferMilestoneParams(cumulative),
   };
 }
 

@@ -7,7 +7,7 @@ import {
 import {
   CURVE_TYPES,
   generateFromType,
-  inferCurveType,
+  inferMilestoneParams,
 } from "./curve-generators.js";
 import {
   downloadUpdatedWorkbook,
@@ -563,9 +563,8 @@ function initCurveStep() {
   }
 
   const cumulative = flowToCumulative(active.flow);
-  const inferred = inferCurveType(cumulative);
-  selectedCurveType = inferred.type;
-  curveParams = { ...inferred.params };
+  selectedCurveType = "milestone";
+  curveParams = { ...inferMilestoneParams(cumulative) };
 
   renderCurveTypeGrid();
   renderCurveForm();
@@ -1010,19 +1009,16 @@ function renderStats() {
 
 document.getElementById("reopenCurveBtn").addEventListener("click", () => {
   const s = getActiveScenario();
-  if (s) {
-    const inferred = inferCurveType(flowToCumulative(s.flow));
-    selectedCurveType = inferred.type;
-    curveParams = { ...inferred.params };
-    if (selectedCurveType === "milestone") {
-      curveParams.milestones = s.knotMonths.map((month, i) => ({
-        month,
-        value: s.knotCumulative[i] ?? 0,
-        label: s.knotLabels?.[i] ?? "",
-      }));
-    }
-  }
   initCurveStep();
+  if (s?.knotMonths?.length) {
+    curveParams.milestones = s.knotMonths.map((month, i) => ({
+      month,
+      value: s.knotCumulative[i] ?? 0,
+      label: s.knotLabels?.[i] ?? "",
+    }));
+    renderCurveForm();
+    updatePreviewChart();
+  }
   setStep("curve");
 });
 
