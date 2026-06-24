@@ -20,29 +20,45 @@ function themeColor(name, fallback) {
   return v || fallback;
 }
 
-const PAD = { top: 28, right: 24, bottom: 44, left: 72 };
+const PAD = { top: 40, right: 32, bottom: 44, left: 72 };
 const LABEL_ANGLE = -Math.PI / 4;
 
-/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {string} label @param {number} i @param {number | null} prevX @param {number[]} knotMonths */
-function drawMilestoneLabel(ctx, x, y, label, i, prevX, knotMonths) {
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {string} label @param {number} i @param {number | null} prevX @param {number[]} knotMonths @param {number} canvasWidth */
+function drawMilestoneLabel(ctx, x, y, label, i, prevX, knotMonths, canvasWidth) {
   const monthGap = i > 0 ? knotMonths[i] - knotMonths[i - 1] : Infinity;
   const pxGap = prevX != null ? Math.abs(x - prevX) : Infinity;
+  const crowded = monthGap <= 4 || pxGap < 72;
 
-  let lift = 10;
-  let angle = LABEL_ANGLE;
-  if (monthGap <= 4 || pxGap < 72) {
-    lift += i % 2 === 0 ? 0 : 16;
-    angle = i % 2 === 0 ? LABEL_ANGLE : -LABEL_ANGLE;
-  }
+  let lift = 12;
+  if (crowded) lift += (i % 2) * 18;
+  lift = Math.min(lift, Math.max(12, y - 14));
+
+  const angle = LABEL_ANGLE;
+  const cosA = Math.cos(angle);
 
   ctx.save();
+  ctx.font = '10px "IBM Plex Mono", monospace';
+  const textWidth = ctx.measureText(label).width;
+  const margin = 10;
+
+  let anchorX = 6;
+  let align = "left";
+
+  const startX = x + anchorX * cosA;
+  const endX = x + (anchorX + textWidth) * cosA;
+  if (endX > canvasWidth - margin) {
+    align = "right";
+    anchorX = -4;
+  } else if (startX < PAD.left + margin) {
+    anchorX = (PAD.left + margin - x) / cosA;
+  }
+
   ctx.translate(x, y - lift);
   ctx.rotate(angle);
   ctx.fillStyle = themeColor("--chart-label", "#8a847a");
-  ctx.font = '10px "IBM Plex Mono", monospace';
-  ctx.textAlign = "left";
+  ctx.textAlign = align;
   ctx.textBaseline = "middle";
-  ctx.fillText(label, 6, 0);
+  ctx.fillText(label, anchorX, 0);
   ctx.restore();
 }
 
@@ -212,7 +228,7 @@ export function createEditor(canvas, opts = {}) {
 
       const label = c.knotLabels?.[i];
       if (label) {
-        drawMilestoneLabel(ctx, x, y, label, i, prevKnotX, c.knotMonths);
+        drawMilestoneLabel(ctx, x, y, label, i, prevKnotX, c.knotMonths, W);
       }
       prevKnotX = x;
     });
