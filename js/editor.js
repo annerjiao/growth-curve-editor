@@ -21,6 +21,30 @@ function themeColor(name, fallback) {
 }
 
 const PAD = { top: 28, right: 24, bottom: 44, left: 72 };
+const LABEL_ANGLE = -Math.PI / 4;
+
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {string} label @param {number} i @param {number | null} prevX @param {number[]} knotMonths */
+function drawMilestoneLabel(ctx, x, y, label, i, prevX, knotMonths) {
+  const monthGap = i > 0 ? knotMonths[i] - knotMonths[i - 1] : Infinity;
+  const pxGap = prevX != null ? Math.abs(x - prevX) : Infinity;
+
+  let lift = 10;
+  let angle = LABEL_ANGLE;
+  if (monthGap <= 4 || pxGap < 72) {
+    lift += i % 2 === 0 ? 0 : 16;
+    angle = i % 2 === 0 ? LABEL_ANGLE : -LABEL_ANGLE;
+  }
+
+  ctx.save();
+  ctx.translate(x, y - lift);
+  ctx.rotate(angle);
+  ctx.fillStyle = themeColor("--chart-label", "#8a847a");
+  ctx.font = '10px "IBM Plex Mono", monospace';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, 6, 0);
+  ctx.restore();
+}
 
 /**
  * @param {HTMLElement} canvas
@@ -175,6 +199,7 @@ export function createEditor(canvas, opts = {}) {
     });
     ctx.stroke();
 
+    let prevKnotX = null;
     c.knotMonths.forEach((m, i) => {
       const { x, y } = toCanvas(m, c.knotCumulative[i], maxCum, W, H);
       ctx.fillStyle = i === dragIndex ? "#ffffff" : themeColor("--chart-knot", "#c9a227");
@@ -187,11 +212,9 @@ export function createEditor(canvas, opts = {}) {
 
       const label = c.knotLabels?.[i];
       if (label) {
-        ctx.fillStyle = themeColor("--chart-label", "#8a847a");
-        ctx.font = '10px "IBM Plex Mono", monospace';
-        ctx.textAlign = "center";
-        ctx.fillText(label, x, y - 14);
+        drawMilestoneLabel(ctx, x, y, label, i, prevKnotX, c.knotMonths);
       }
+      prevKnotX = x;
     });
   }
 
