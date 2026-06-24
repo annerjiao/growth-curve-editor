@@ -631,6 +631,63 @@ button:hover { filter: brightness(1.12); }
   margin-bottom: 0 !important;
 }
 
+.milestone-text-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fcfbfa;
+  margin-bottom: 4px;
+}
+
+.milestone-text-label {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.milestone-text-label textarea {
+  font-family: var(--font-body);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.88rem;
+  resize: vertical;
+  min-height: 72px;
+}
+
+.milestone-ai-settings {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.milestone-ai-settings summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.milestone-ai-settings .hint {
+  margin: 6px 0 0;
+}
+
+.milestone-parse-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.milestone-ai-hint {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
 .milestone-block {
   grid-column: 1 / -1;
   margin-top: 8px;
@@ -638,12 +695,30 @@ button:hover { filter: brightness(1.12); }
   border-top: 1px solid var(--border);
 }
 
+.milestone-block-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.milestone-delete-btn,
+.knot-delete-btn {
+  font-size: 0.75rem;
+  padding: 0;
+}
+
+.knot-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .milestone-block-title {
   display: block;
-  grid-column: 1 / -1;
   font-family: var(--font-heading);
   font-size: 1rem;
-  margin-bottom: 4px;
 }
 
 .add-milestone-btn {

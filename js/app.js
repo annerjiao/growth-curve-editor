@@ -17,6 +17,7 @@ import {
   readFlowRange,
 } from "./xlsx-io.js";
 import { createEditor, drawMiniChart } from "./editor.js";
+import { parseMilestoneText, MILESTONE_PARSE_URL } from "./milestone-parser.js";
 import {
   analyzeMappedRange,
   detectDriverCandidates,
@@ -628,16 +629,48 @@ function renderCurveForm() {
       ];
       curveParams.milestones = ms;
 
+      const textPanel = document.createElement("div");
+      textPanel.className = "milestone-text-panel";
+      textPanel.innerHTML = `
+        <label class="milestone-text-label">
+          Describe your growth goals
+          <textarea id="milestoneFreeText" rows="3" placeholder="e.g. Launch at month 6 with 100 users, hit 500 by end of year 1, reach 5k by month 36"></textarea>
+        </label>
+        <div class="milestone-parse-row">
+          <button type="button" class="btn-secondary" id="milestoneParseBtn">Parse into milestones</button>
+          <span id="milestoneParseStatus" class="status-text"></span>
+        </div>
+        <p class="hint milestone-ai-hint">${MILESTONE_PARSE_URL ? "Describe your goals in plain English — we'll parse them with AI." : "Describe your goals in plain English — parsed locally in your browser."}</p>`;
+      form.appendChild(textPanel);
+
       const hint = document.createElement("p");
       hint.className = "hint milestone-form-hint";
       hint.textContent =
-        "Set targets at uneven months. Add labels like “Launch” or “Series A” — they appear on the chart.";
+        "Or set milestones manually below. Add labels like “Launch” or “Series A” — they appear on the chart.";
       form.appendChild(hint);
 
       ms.forEach((m, i) => {
         const block = document.createElement("div");
         block.className = "milestone-block";
-        block.innerHTML = `<span class="milestone-block-title">Milestone ${i + 1}</span>`;
+        block.dataset.index = String(i);
+
+        const head = document.createElement("div");
+        head.className = "milestone-block-header";
+        head.innerHTML = `<span class="milestone-block-title">Milestone ${i + 1}</span>`;
+        if (ms.length > 1) {
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "btn-link milestone-delete-btn";
+          delBtn.textContent = "Remove";
+          delBtn.addEventListener("click", () => {
+            syncParamsFromForm();
+            curveParams.milestones.splice(i, 1);
+            renderCurveForm();
+            updatePreviewChart();
+          });
+          head.appendChild(delBtn);
+        }
+        block.appendChild(head);
         form.appendChild(block);
 
         const addTextField = (label, key, value, placeholder = "") => {
@@ -755,6 +788,55 @@ document.getElementById("curveApplyBtn").addEventListener("click", () => {
   }
 });
 
+document.getElementById("curveForm").addEventListener("click", async (e) => {
+  if (e.target.id !== "milestoneParseBtn" || selectedCurveType !== "milestone") return;
+
+  const form = document.getElementById("curveForm");
+  const textEl = form.querySelector("#milestoneFreeText");
+  const statusEl = form.querySelector("#milestoneParseStatus");
+  const text = textEl?.value?.trim() ?? "";
+
+  if (!text) {
+    if (statusEl) statusEl.textContent = "Enter a description first.";
+    return;
+  }
+
+  e.target.disabled = true;
+  if (statusEl) statusEl.textContent = MILESTONE_PARSE_URL ? "Asking Claude…" : "Parsing…";
+
+  try {
+    const { milestones, source } = await parseMilestoneText(text, totalMonths);
+    if (!milestones.length) {
+      if (statusEl) {
+        statusEl.textContent =
+          "Couldn't find milestones — try month + number (e.g. “500 users by month 12”).";
+      }
+      return;
+    }
+
+    syncParamsFromForm();
+    curveParams.milestones = milestones;
+    renderCurveForm();
+    updatePreviewChart();
+
+    const refreshed = document.getElementById("curveForm");
+    const newText = refreshed.querySelector("#milestoneFreeText");
+    const newStatus = refreshed.querySelector("#milestoneParseStatus");
+    if (newText) newText.value = text;
+    if (newStatus) {
+      newStatus.textContent =
+        source === "ai"
+          ? `Parsed ${milestones.length} milestone${milestones.length === 1 ? "" : "s"} with Claude Sonnet.`
+          : `Parsed ${milestones.length} milestone${milestones.length === 1 ? "" : "s"} locally.`;
+    }
+  } catch (err) {
+    if (statusEl) statusEl.textContent = err?.message || "Parse failed.";
+  } finally {
+    const btn = document.getElementById("milestoneParseBtn");
+    if (btn) btn.disabled = false;
+  }
+});
+
 function applyCurveToActive() {
   const result = generateFromType(
     selectedCurveType,
@@ -852,10 +934,11 @@ function renderKnotTable() {
   if (!s || !data) return;
 
   thead.innerHTML = isMilestone
-    ? "<th>Month</th><th>Label</th><th>Cumulative</th>"
+    ? "<th>Month</th><th>Label</th><th>Cumulative</th><th></th>"
     : "<th>Month</th><th>Cumulative</th>";
 
   tbody.innerHTML = "";
+  const canDeleteKnot = isMilestone && s.knotMonths.length > 2;
   s.knotMonths.forEach((m, i) => {
     const tr = document.createElement("tr");
     const labelVal = escapeAttr(data.knotLabels?.[i] ?? "");
@@ -863,7 +946,8 @@ function renderKnotTable() {
       tr.innerHTML = `
         <td><input type="number" min="1" max="${totalMonths}" step="1" data-field="month" data-i="${i}" value="${m}" /></td>
         <td><input type="text" data-field="label" data-i="${i}" value="${labelVal}" placeholder="Milestone label" /></td>
-        <td><input type="number" min="0" step="100" data-field="value" data-i="${i}" value="${data.knotCumulative[i]}" /></td>`;
+        <td><input type="number" min="0" step="100" data-field="value" data-i="${i}" value="${data.knotCumulative[i]}" /></td>
+        <td class="knot-actions">${canDeleteKnot ? `<button type="button" class="btn-link knot-delete-btn" data-i="${i}">Remove</button>` : ""}</td>`;
     } else {
       tr.innerHTML = `<td>M${m}</td><td><input type="number" min="0" step="100" data-field="value" data-i="${i}" value="${data.knotCumulative[i]}" /></td>`;
     }
@@ -886,6 +970,26 @@ function renderKnotTable() {
       s.knotLabels = updated.knotLabels ? [...updated.knotLabels] : [];
       s.flow = [...updated.flow];
       if (inp.dataset.field === "month") renderKnotTable();
+    });
+  });
+
+  tbody.querySelectorAll(".knot-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.i);
+      editor.deleteKnot(i);
+      const updated = editor.getScenarios()[activeScenarioId];
+      s.knotMonths = [...updated.knotMonths];
+      s.knotCumulative = [...updated.knotCumulative];
+      s.knotLabels = updated.knotLabels ? [...updated.knotLabels] : [];
+      s.flow = [...updated.flow];
+      curveParams.milestones = s.knotMonths.map((month, idx) => ({
+        month,
+        value: s.knotCumulative[idx] ?? 0,
+        label: s.knotLabels?.[idx] ?? "",
+      }));
+      renderKnotTable();
+      renderCaseGrid();
+      renderStats();
     });
   });
 }

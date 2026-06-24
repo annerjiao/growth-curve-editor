@@ -36,6 +36,8 @@ jobs:
           # Use /repo-name/ only for project Pages (username.github.io/repo-name).
           # For a custom domain at the root, set VITE_BASE_PATH: /
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # Set repo variable VITE_MILESTONE_PARSE_URL to your Cloudflare Worker URL
+          VITE_MILESTONE_PARSE_URL: ${{ vars.VITE_MILESTONE_PARSE_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

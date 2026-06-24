@@ -310,6 +310,16 @@ export function createEditor(canvas, opts = {}) {
       onChange(activeKey, c);
       render();
     },
+    deleteKnot(i) {
+      const c = getActive();
+      if (!c || c.knotMonths.length <= 2) return;
+      c.knotMonths.splice(i, 1);
+      c.knotCumulative.splice(i, 1);
+      if (c.knotLabels) c.knotLabels.splice(i, 1);
+      c.knotMonths = enforceMonotonicKnotMonths(c.knotMonths, totalMonths);
+      enforceMonotonicKnots(c.knotCumulative);
+      recompute(activeKey, true);
+    },
     render,
     fmt,
   };

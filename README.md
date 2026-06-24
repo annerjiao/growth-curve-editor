@@ -76,6 +76,53 @@ GitHub Pages includes free TLS for custom domains.
 
 On upload, the app **infers** a suggested curve type from your existing data.
 
+## Claude milestone parsing (optional)
+
+**Your users never deploy anything.** You deploy a tiny Cloudflare Worker once; visitors get AI parsing automatically. Your Anthropic key stays on the worker — it never ships in the JavaScript bundle.
+
+```
+Visitor's browser  →  your Worker (secret key)  →  Anthropic Claude Sonnet 4.5
+```
+
+Without the worker URL baked into the build, parsing still works locally (regex heuristics).
+
+### One-time setup (you only)
+
+```bash
+cd worker
+npm install
+npx wrangler login
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler deploy
+```
+
+Copy the worker URL, then:
+
+1. Add your live site to `ALLOWED_ORIGINS` in `worker/wrangler.toml`
+2. GitHub → **Settings → Actions → Variables** → `VITE_MILESTONE_PARSE_URL` = worker URL
+3. Push to `main` (rebuilds GitHub Pages with the worker URL embedded)
+
+`RATE_LIMIT_PER_HOUR` (default 40) limits abuse of your shared key.
+
+### Local dev with Claude
+
+Terminal 1 — worker:
+
+```bash
+cd worker && npm install && cp .dev.vars.example .dev.vars
+# paste your key into .dev.vars
+npm run dev
+```
+
+Terminal 2 — app:
+
+```bash
+echo 'VITE_MILESTONE_PARSE_URL=http://localhost:8787' > .env.local
+npm run dev
+```
+
+Without the worker URL, parsing still works **locally in the browser** (regex heuristics).
+
 ## Configuration
 
 Links in `index.html`:
